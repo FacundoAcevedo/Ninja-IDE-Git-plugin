@@ -10,3 +10,7 @@ It supports:
 Heres a video showing de plugin in action.
 
 http://youtu.be/U4xjL0bWXUA
+
+
+The way the plugin works is needed to have open and be editing(in the current focus) 
+any file of the project that you want to use with git.
