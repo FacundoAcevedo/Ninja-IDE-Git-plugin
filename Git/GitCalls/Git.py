@@ -1,225 +1,142 @@
 # -*- coding: utf-8 *-*
-import subprocess
-import os
 import re
+from git import Repo
+from git.errors import InvalidGitRepositoryError
+
 
 class Git():
 
     def __init__(self):
-
-
-        self.staged = {"M":set(),"A":set(),"D":set()}
-
-        self.no_staged = {"M":set(),"?":set(),"D":set()}
-
-
+        self.staged = {"M": set(), "A": set(), "D": set()}
+        self.no_staged = {"M": set(), "?": set(), "D": set()}
         self.files_text = {}
 
-    def init(self,path):
+    def init(self, path):
+        try:
+            Repo.create(path)
+            message = "Success"
+        except IOError:
+            message = "Problem writing folder"
+        return message
 
-        run_dir = os.getcwd()
-        os.chdir(path)
-        check = subprocess.check_output(['git','init'])
-        os.chdir(run_dir)
+    def check_git(self, path):
+        call_status = True
+        try:
+            repo = Repo(path)
+            repo.git.status()
+        except InvalidGitRepositoryError:
+            call_status = False
+        return call_status
 
-        return check
-
-    def check_git(self,path):
-
-        run_dir = os.getcwd()
-        os.chdir(path)
-        check = subprocess.call(['git','status'])
-        os.chdir(run_dir)
-
-        if check == 0:
-            return True
-        else:
-            return False
-
-
-    def status(self,path):
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.check_output(["git","status","--porcelain"])
-        os.chdir(p)
-
+    def status(self, path):
+        repo = Repo(path)
+        call = repo.git.status("--porcelain")
         pattern = re.compile("(.)([^ ])?  ?(.*)")
-
         data = pattern.findall(call)
-
-        print data
-
         for changes in data:
-
             if changes[0] == ' ':
-
                 self.no_staged[changes[1]].add(changes[2])
-
             elif changes[0] == '?':
                 self.no_staged[changes[0]].add(changes[2])
-
             elif changes[1] == '':
                 self.staged[changes[0]].add(changes[2])
             else:
-
                 self.staged[changes[0]].add(changes[2])
                 self.no_staged[changes[1]].add(changes[2])
 
-
-    def text(self,path,file,state=False,file_text=False):
-
-
-
+    def text(self, path, a_file, state=False, file_text=False):
         file_text = unicode(file_text).splitlines()
         source = ""
         source_info = {}
+        repo = Repo(path)
         n = 0
-
-
-        p = os.getcwd()
-        os.chdir(path)
-
         if state:
-            call = subprocess.check_output(["git","diff",state,file])
+            call = repo.git.diff(state, a_file)
         else:
-            call = subprocess.check_output(["git","diff",file])
-
-        os.chdir(p)
-
+            call = repo.git.diff(a_file)
         text = False
-
         for line in call.splitlines():
-
             if line.startswith("@"):
                 text = True
                 pattern = r"@@ .(\d+),(\d+) .(\d+),(\d+) @@"
                 s = re.compile(pattern)
                 pos = s.search(line).groups()
-                current = int(pos[2])-1
+                current = int(pos[2]) - 1
                 continue
-
-
             if text == True:
-
                 if line.startswith('+'):
-
-
                     source_info[current] = '+'
                     source += line[1:]
                     file_text[current] = line[1:]
                 elif line.startswith('-'):
-
                     source_info[current] = '-'
-                    source +=line[1:]
-                    file_text.insert(current,line[1:])
-
-
+                    source += line[1:]
+                    file_text.insert(current, line[1:])
                 else:
                     source_info[current] = '='
                     source += line[1:]
                     file_text[current] = line[1:]
-
-                source+="\n"
-                n+=1
+                source += "\n"
+                n += 1
                 current += 1
-
-        final =""
+        final = ""
         for t in file_text:
-            final+=t.decode("utf-8")+"\n"
-        return(source,source_info,final)
+            final += t.decode("utf-8") + "\n"
+        return (source, source_info, final)
 
-    def add(self,path,file):
+    def add(self, path, a_file):
+        repo = Repo(path)
+        repo.git.add(a_file)
 
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.check_output(["git","add",file])
-        os.chdir(p)
+    def unstage(self, path, a_file):
+        repo = Repo(path)
+        repo.git.checkout("--", a_file)
 
-    def unstage(self,path,file):
+    def commit(self, path, a_file, msg):
+        repo = Repo(path)
+        repo.git.commit(a_file, "-m", msg)
 
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.check_output(["git","checkout","--",file])
-        os.chdir(p)
+    def uncommit(self, path, a_file):
+        repo = Repo(path)
+        repo.git.reset("HEAD", a_file)
 
-    def commit(self,path,file,msg):
-
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.call(["git","commit",file,'-m',msg])
-        os.chdir(p)
-
-    def uncommit(self,path,file):
-
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.call(["git","reset","HEAD",file])
-        os.chdir(p)
-
-
-    def branch(self,path):
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.check_output(["git","branch"])
-        os.chdir(p)
-
+    def branch(self, path):
+        repo = Repo(path)
+        call = repo.git.branch()
         branches = []
 
         for x in call.splitlines():
-
             if x.startswith("*"):
-                branches.insert(0,x[2:])
-
+                branches.insert(0, x[2:])
             else:
                 branches.append(x[2:])
 
         return branches
 
-    def change_branch(self,path,branch):
+    def change_branch(self, path, branch):
+        repo = Repo(path)
+        repo.git.checkout(branch)
 
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.call(["git","checkout",branch])
-        os.chdir(p)
+    def add_branch(self, path, branch):
+        repo = Repo(path)
+        repo.git.branch(branch)
 
-
-
-    def add_branch(self,path,branch):
-
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.call(["git","branch",branch])
-        os.chdir(p)
-
-
-    def delete_branch(self,path,branch):
-
+    def delete_branch(self, path, branch):
+        repo = Repo(path)
         if branch != "master":
-            p = os.getcwd()
-            os.chdir(path)
-            call = subprocess.call(["git","branch","-d",branch])
-            os.chdir(p)
-            if call ==1:
+            try:
+                repo.git.branch("-d", branch)
+            except:
                 return "Branch ''{0}'' not fully merged".format(branch)
-    def merge_branches(self,path,branch):
 
-
-        p = os.getcwd()
-        os.chdir(path)
-        call = subprocess.call(["git","merge",branch])
-        os.chdir(p)
-        if call == 1:
+    def merge_branches(self, path, branch):
+        repo = Repo(path)
+        try:
+            repo.git.merge(branch)
+        except:
             return "Cant merge branches"
 
-    def force_delete_branch(self,path,branch):
-
+    def force_delete_branch(self, path, branch):
+        repo = Repo(path)
         if branch != "master":
-            p = os.getcwd()
-            os.chdir(path)
-            call = subprocess.call(["git","branch","-D",branch])
-            os.chdir(p)
+            repo.git.branch("-D", branch)
