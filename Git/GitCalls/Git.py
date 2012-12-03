@@ -1,7 +1,7 @@
 # -*- coding: utf-8 *-*
 import re
 from git import Repo
-from git.errors import InvalidGitRepositoryError
+from git import InvalidGitRepositoryError
 
 
 class Git():
