@@ -1,6 +1,7 @@
 # -*- coding: utf-8 *-*
 import os
-from GitCalls import Git as git
+
+git = None
 
 from ninja_ide.core import plugin
 
@@ -394,6 +395,19 @@ class Git(plugin.Plugin):
         self.toolbar = self.locator.get_service('toolbar')
         self.menu = self.locator.get_service('menuApp')
         self.explorer = self.locator.get_service('explorer')
+
+        try:
+            from GitCalls import Git as git_obj
+            global git
+            git = git_obj
+        except ImportError:
+            raise ImportError(
+            u"""
+
+            Failed to import the git module. Probably it isn't installed.
+            Please check the git python module is installed, and try again.
+            """
+            )
 
         self.plug_path = os.path.abspath(__file__)
         self.plug_path = os.path.dirname(self.path)
