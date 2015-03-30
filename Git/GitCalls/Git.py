@@ -13,7 +13,7 @@ class Git():
 
     def init(self, path):
         try:
-            Repo.create(path)
+            Repo.init(path)
             message = "Success"
         except IOError:
             message = "Problem writing folder"
